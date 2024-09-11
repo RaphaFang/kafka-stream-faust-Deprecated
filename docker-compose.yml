@@ -1,12 +1,12 @@
 services:
   faust_app:
-    image: python:3.9
+    image: python:3.9-slim
     volumes:
       - ./faust_app:/faust_app
     working_dir: /faust_app
     ports:
       - "6066:6066"
     network_mode: host
-    command: bash -c "pip install faust && python app.py"
+    command: bash -c "pip install faust==1.10.4 && python ma_agg.py"
     environment:
       - KAFKA_BROKER=kafka://10.0.1.138:9092
