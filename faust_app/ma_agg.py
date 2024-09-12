@@ -41,8 +41,8 @@ aggregated_topic = app.topic('kafka_MA_data_aggregated', value_type=AggregatedDa
 windowed_table = app.Table(
     'windowed_stock_table',
     default=AggregatedData,
-    partitions=
-).hopping(size=60, step=30) 
+    # partitions=
+    ).hopping(size=60, step=30) 
 
 @app.agent(topic)
 async def process(stream):
