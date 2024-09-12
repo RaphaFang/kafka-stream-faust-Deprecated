@@ -43,7 +43,7 @@ windowed_table = app.Table(
         count_of_vwap=0, window_data_count=0, 
         real_data_count=0, filled_data_count=0
     ),    # partitions=
-    ).hopping(size=60)  # , step=30
+    ).tumbling(size=60)  # , step=30
 
 aggregated_topic = app.topic('kafka_MA_data_aggregated', value_type=AggregatedData)
 
