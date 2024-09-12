@@ -88,9 +88,8 @@ async def process(stream):
                 real_data_count=existing.real_data_count + stock_data.real_data_count,
                 filled_data_count=existing.filled_data_count + stock_data.filled_data_count
             )
-
-
-
+        await aggregated_topic.send(value=windowed_table[key])
+        print("data sended") 
 
 if __name__ == '__main__':
     app.main()
