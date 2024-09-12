@@ -93,8 +93,12 @@ async def process(stream):
         # if windowed_table[key].current_window_expires < datetime.utcnow().timestamp():
         #     await aggregated_topic.send(value=windowed_table[key]) ## 這邊的會是WindowSet物件
             
-        if datetime.fromisoformat(windowed_table[key].current_time) < datetime.utcnow():
-            await aggregated_topic.send(value=windowed_table[key])
+        # if datetime.fromisoformat(windowed_table[key].current_time) < datetime.utcnow():
+        #     await aggregated_topic.send(value=windowed_table[key])
+        current_window = windowed_table[key].value()
+        if current_window and datetime.fromisoformat(current_window.current_time) < datetime.utcnow():
+            await aggregated_topic.send(value=current_window)
+
 
 
 
