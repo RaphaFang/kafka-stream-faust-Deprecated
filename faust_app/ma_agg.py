@@ -34,10 +34,7 @@ app = faust.App('stock-ma-data-aggregator',
                 web_port=6066,
                 concurrency=2
             )
-
 topic = app.topic('kafka_MA_data', value_type=StockData)
-aggregated_topic = app.topic('kafka_MA_data_aggregated', value_type=AggregatedData)
-
 windowed_table = app.Table(
     'windowed_stock_table',
     default=lambda: AggregatedData(
@@ -46,15 +43,18 @@ windowed_table = app.Table(
         count_of_vwap=0, window_data_count=0, 
         real_data_count=0, filled_data_count=0
     ),    # partitions=
-    ).hopping(size=60, step=30) 
+    ).hopping(size=60)  # , step=30
+
+aggregated_topic = app.topic('kafka_MA_data_aggregated', value_type=AggregatedData)
+
 @app.agent(topic)
 async def process(stream):
     async for stock_data in stream.group_by(lambda x: f"{x.symbol}_{x.MA_type}", name="grouped_by_symbol_MA"):
+        # 這步驟是建立鍵質
         key = (stock_data.symbol, stock_data.type, stock_data.MA_type, stock_data.start, stock_data.end)
+        existing = windowed_table[key].value()  ## 這是之前存在的資料
         
-        existing = windowed_table[key].value()
-        
-        if existing is None:
+        if existing is None: ## 如果是空的。把stock_data拉進去放
             windowed_table[key] = AggregatedData(
                 symbol=stock_data.symbol,
                 type=stock_data.type,
@@ -69,7 +69,7 @@ async def process(stream):
                 real_data_count=stock_data.real_data_count,
                 filled_data_count=stock_data.filled_data_count
             )
-        else:
+        else: ## 如果有。把stock_data加進去放
             new_sum_of_vwap = existing.sum_of_vwap + stock_data.sum_of_vwap
             new_count_of_vwap = existing.count_of_vwap + stock_data.count_of_vwap
             new_sma_value = new_sum_of_vwap / new_count_of_vwap if new_count_of_vwap != 0 else 0
