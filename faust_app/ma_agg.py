@@ -46,7 +46,8 @@ windowed_table = app.Table(
 
 @app.agent(topic)
 async def process(stream):
-    async for stock_data in stream.group_by(lambda x: f"{x.symbol}_{x.MA_type}"):
+    # async for stock_data in stream.group_by(lambda x: f"{x.symbol}_{x.MA_type}"):
+    async for stock_data in stream.group_by(lambda x: f"{x.symbol}_{x.MA_type}",name="grouped_by_symbol_MA"):
         key = (stock_data.symbol, stock_data.type, stock_data.MA_type, stock_data.start, stock_data.end)
         if key not in windowed_table:
             windowed_table[key] = AggregatedData(
