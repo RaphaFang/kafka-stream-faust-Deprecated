@@ -40,8 +40,12 @@ aggregated_topic = app.topic('kafka_MA_data_aggregated', value_type=AggregatedDa
 
 windowed_table = app.Table(
     'windowed_stock_table',
-    default=AggregatedData,
-    # partitions=
+    default=lambda: AggregatedData(
+        symbol='', type='', MA_type='', start='', end='',
+        current_time='', sma_value=0.0, sum_of_vwap=0.0, 
+        count_of_vwap=0, window_data_count=0, 
+        real_data_count=0, filled_data_count=0
+    ),    # partitions=
     ).hopping(size=60, step=30) 
 
 @app.agent(topic)
