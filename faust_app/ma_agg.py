@@ -1,6 +1,6 @@
 import faust
 from datetime import datetime
-
+import pytz
 class StockData(faust.Record):
     symbol: str
     type: str
@@ -95,9 +95,10 @@ async def process(stream):
             
         # if datetime.fromisoformat(windowed_table[key].current_time) < datetime.utcnow():
         #     await aggregated_topic.send(value=windowed_table[key])
-        current_window = windowed_table[key].value()
-        if current_window and datetime.fromisoformat(current_window.current_time) < datetime.utcnow():
-            await aggregated_topic.send(value=current_window)
+        # taipei_tz = pytz.timezone('Asia/Taipei')
+        # current_time = datetime.fromisoformat(current_window.current_time).astimezone(taipei_tz)
+        # if current_window and current_time < datetime.now(taipei_tz):
+        #     await aggregated_topic.send(value=current_window)
 
 
 

@@ -10,3 +10,4 @@ services:
     command: bash -c "pip install faust==1.10.4 && faust -A ma_agg worker"
     environment:
       - KAFKA_BROKER=kafka://10.0.1.138:9092
+      - TZ=Asia/Taipei
