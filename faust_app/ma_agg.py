@@ -58,7 +58,7 @@ async def process(stream):
             windowed_table[key] = AggregatedData(
                 symbol=stock_data.symbol,
                 type=stock_data.type,
-                MA_type='5s_MA',
+                MA_type='5_MA_data',
                 start=stock_data.start,
                 end=stock_data.end,
                 current_time=stock_data.current_time,
@@ -77,7 +77,7 @@ async def process(stream):
             windowed_table[key] = AggregatedData(
                 symbol=stock_data.symbol,
                 type=stock_data.type,
-                MA_type='5s_MA',
+                MA_type='5_MA_data',
                 start=stock_data.start,
                 end=stock_data.end,
                 current_time=stock_data.current_time,
