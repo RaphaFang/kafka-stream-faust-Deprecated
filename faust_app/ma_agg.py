@@ -41,7 +41,7 @@ aggregated_topic = app.topic('kafka_MA_data_aggregated', value_type=AggregatedDa
 windowed_table = app.Table(
     'windowed_stock_table',
     default=AggregatedData,
-    # partitions=15
+    partitions=
 ).hopping(size=60, step=30) 
 
 @app.agent(topic)
@@ -86,8 +86,12 @@ async def process(stream):
                 filled_data_count=existing.filled_data_count + stock_data.filled_data_count
             )
         
-        if windowed_table[key].current_window_expires < datetime.utcnow().timestamp():
+        # if windowed_table[key].current_window_expires < datetime.utcnow().timestamp():
+        #     await aggregated_topic.send(value=windowed_table[key]) ## 這邊的會是WindowSet物件
+            
+        if windowed_table[key].now() < datetime.utcnow().timestamp():
             await aggregated_topic.send(value=windowed_table[key])
+
 
 if __name__ == '__main__':
     app.main()
