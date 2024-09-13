@@ -54,8 +54,9 @@ async def process(stream):
         key = (stock_data.symbol,)
         existing = windowed_table[key].value()
 
-        window_start = datetime.fromisoformat(stock_data.current_time)
-        window_end = datetime.fromisoformat(stock_data.current_time) + timedelta(seconds=5)
+        window = windowed_table[key].window()
+        window_start = window.start.isoformat()
+        window_end = window.end.isoformat()
 
 
         if existing is None:
@@ -67,8 +68,8 @@ async def process(stream):
                 type=stock_data.type,
                 MA_type='5_MA_data',
 
-                start=window_start.isoformat(),
-                end=window_end.isoformat(), 
+                start=window_start,
+                end=window_end,
                 current_time=datetime.utcnow().isoformat(),
 
                 sma_value=0.0,
@@ -91,7 +92,7 @@ async def process(stream):
                 MA_type='5_MA_data',
 
                 start=existing.start,
-                end=window_end.isoformat(),
+                end=window_end,
                 current_time=datetime.utcnow().isoformat(),
 
                 sma_value=new_sma_value,
@@ -104,7 +105,7 @@ async def process(stream):
             )
 
         # if window_end.isoformat() == datetime.utcnow().isoformat():
-        if windowed_table[key].value().window_data_count >= 5:
+        if window.has_ended():
             aggregated_data = windowed_table[key].value()
             if aggregated_data:
                 await aggregated_topic.send(value=aggregated_data)
