@@ -54,12 +54,11 @@ async def process(stream):
         key = (stock_data.symbol,)
         existing = windowed_table[key].value()
 
-        # window = windowed_table[key].window()
-        # window_start = window.start.isoformat()
-        # window_end = window.end.isoformat()
+        current_time = datetime.fromisoformat(stock_data.current_time)
+        window_start = current_time - timedelta(seconds=4)
+        window_end = current_time + timedelta(seconds=1)
 
-
-        if existing is None:
+        if existing is None or window_start.isoformat() != existing.start:
             sum_vwap = stock_data.vwap_price_per_sec if stock_data.size_per_sec != 0 else 0
             count_vwap = 1 if stock_data.size_per_sec != 0 else 0
 
@@ -68,9 +67,9 @@ async def process(stream):
                 type=stock_data.type,
                 MA_type='5_MA_data',
 
-                start=stock_data.current_time,
-                end=stock_data.current_time,
-                current_time=stock_data.current_time,
+                start=window_start.isoformat(),
+                end=window_end.isoformat(),
+                current_time=datetime.utcnow().isoformat(),
 
                 sma_value=0.0,
                 sum_of_vwap=sum_vwap,
@@ -91,9 +90,9 @@ async def process(stream):
                 type=stock_data.type,
                 MA_type='5_MA_data',
 
-                start=existing.start,
-                end=stock_data.current_time,
-                current_time=stock_data.current_time,
+                start=existing.start or window_start.isoformat(),
+                end=window_end.isoformat(),
+                current_time=datetime.utcnow().isoformat(),
 
                 sma_value=new_sma_value,
                 sum_of_vwap=new_sum_vwap,
@@ -104,12 +103,12 @@ async def process(stream):
                 filled_data_count=existing.filled_data_count + stock_data.filled_data_count
             )
 
-        # if window_end.isoformat() == datetime.utcnow().isoformat():
-        if windowed_table[key].value().window_data_count >= 5:
+        window = windowed_table[key].current()
+        if window.is_closed():
             aggregated_data = windowed_table[key].value()
             if aggregated_data:
                 await aggregated_topic.send(value=aggregated_data)
-                print("data sended")
+                print("data sent")
 
 if __name__ == '__main__':
     app.main()
