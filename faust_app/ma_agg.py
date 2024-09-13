@@ -103,7 +103,8 @@ async def process(stream):
                 filled_data_count=existing.filled_data_count + stock_data.filled_data_count
             )
 
-        if window_end.isoformat() == datetime.utcnow().isoformat():
+        # if window_end.isoformat() == datetime.utcnow().isoformat():
+        if windowed_table[key].value().window_data_count >= 5:
             aggregated_data = windowed_table[key].value()
             if aggregated_data:
                 await aggregated_topic.send(value=aggregated_data)
