@@ -1,5 +1,5 @@
 import faust
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class StockData(faust.Record):
     symbol: str
@@ -51,48 +51,63 @@ aggregated_topic = app.topic('kafka_MA_data_aggregated', value_type=AggregatedDa
 @app.agent(topic)
 async def process(stream):
     async for stock_data in stream.group_by(lambda x: f"{x.symbol}", name="grouped_by_symbol"):
-        key = (stock_data.symbol, stock_data.type, stock_data.start, stock_data.end)
+        key = (stock_data.symbol,)
         existing = windowed_table[key].value()
 
+        window_start = datetime.fromisoformat(stock_data.current_time)
+        window_end = datetime.fromisoformat(stock_data.current_time) + timedelta(seconds=5)
+
+
         if existing is None:
-            windowed_table[key] = AggregatedData(
-                symbol=stock_data.symbol,
-                type=stock_data.type,
-                MA_type='5_MA_data',
-                start=stock_data.start,
-                end=stock_data.end,
-                current_time=stock_data.current_time,
-                sma_value=0.0,
-                sum_of_vwap=stock_data.vwap_price_per_sec * stock_data.size_per_sec,
-                count_of_vwap=stock_data.size_per_sec,
-                window_data_count=1,
-                real_data_count=stock_data.real_data_count,
-                filled_data_count=stock_data.filled_data_count
-            )
-        else:
-            new_sum_of_vwap = existing.sum_of_vwap + stock_data.vwap_price_per_sec * stock_data.size_per_sec
-            new_count_of_vwap = existing.count_of_vwap + stock_data.size_per_sec
-            new_sma_value = new_sum_of_vwap / new_count_of_vwap if new_count_of_vwap != 0 else 0
+            sum_vwap = stock_data.vwap_price_per_sec if stock_data.size_per_sec != 0 else 0
+            count_vwap = 1 if stock_data.size_per_sec != 0 else 0
 
             windowed_table[key] = AggregatedData(
                 symbol=stock_data.symbol,
                 type=stock_data.type,
                 MA_type='5_MA_data',
-                start=stock_data.start,
-                end=stock_data.end,
-                current_time=stock_data.current_time,
+
+                start=window_start.isoformat(),
+                end=window_end.isoformat(), 
+                current_time=datetime.utcnow().isoformat(),
+
+                sma_value=0.0,
+                sum_of_vwap=sum_vwap,
+                count_of_vwap=count_vwap,
+                window_data_count=1,
+
+                real_data_count=1 if stock_data.real_or_filled == 'real' else 0,
+                filled_data_count=1 if stock_data.real_or_filled != 'real' else 0
+            )
+        else:
+            new_sum_vwap = existing.sum_of_vwap + (stock_data.vwap_price_per_sec if stock_data.size_per_sec != 0 else 0)
+            new_count_vwap = existing.count_of_vwap + (1 if stock_data.size_per_sec != 0 else 0)
+            new_window_data_count = existing.window_data_count + 1
+            new_sma_value = new_sum_vwap / new_count_vwap if new_count_vwap != 0 else 0
+
+            windowed_table[key] = AggregatedData(
+                symbol=stock_data.symbol,
+                type=stock_data.type,
+                MA_type='5_MA_data',
+
+                start=existing.start,
+                end=window_end.isoformat(),
+                current_time=datetime.utcnow().isoformat(),
+
                 sma_value=new_sma_value,
-                sum_of_vwap=new_sum_of_vwap,
-                count_of_vwap=new_count_of_vwap,
-                window_data_count=existing.window_data_count + 1,
+                sum_of_vwap=new_sum_vwap,
+                count_of_vwap=new_count_vwap,
+                window_data_count=new_window_data_count,
+
                 real_data_count=existing.real_data_count + stock_data.real_data_count,
                 filled_data_count=existing.filled_data_count + stock_data.filled_data_count
             )
 
-        aggregated_data = windowed_table[key].value()
-        if aggregated_data:
-            await aggregated_topic.send(value=aggregated_data)
-            print("data sended")
+        if window_end.isoformat() == datetime.utcnow().isoformat():
+            aggregated_data = windowed_table[key].value()
+            if aggregated_data:
+                await aggregated_topic.send(value=aggregated_data)
+                print("data sended")
 
 if __name__ == '__main__':
     app.main()
