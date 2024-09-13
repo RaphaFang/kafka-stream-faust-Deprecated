@@ -1,6 +1,7 @@
 import faust
 from datetime import datetime, timedelta
 from typing import List, Dict
+import pytz
 
 class StockData(faust.Record):
     symbol: str
@@ -42,13 +43,16 @@ window_table = app.Table('window_table', default=dict)
 
 aggregated_topic = app.topic('kafka_MA_data_aggregated', value_type=AggregatedData)
 
+def to_utc(dt: datetime) -> datetime:
+    return dt.astimezone(pytz.UTC) if dt.tzinfo else pytz.UTC.localize(dt)
+
 @app.timer(interval=1.0)
 async def process_windows():
-    current_time = datetime.utcnow()
+    current_time = to_utc(datetime.utcnow())
     for symbol, data in window_table.items():
         window_data: Dict[datetime, StockData] = data
         start_time = current_time - timedelta(seconds=5)
-        window_data = {t: d for t, d in window_data.items() if t >= start_time}
+        window_data = {t: d for t, d in window_data.items() if to_utc(t) >= start_time}
         
         if len(window_data) == 5:
             sum_vwap = sum(d.vwap_price_per_sec for d in window_data.values() if d.size_per_sec != 0)
@@ -60,8 +64,8 @@ async def process_windows():
                 symbol=symbol,
                 type=next(iter(window_data.values())).type,
                 MA_type='5_MA_data',
-                start=min(window_data.keys()).isoformat(),
-                end=max(window_data.keys()).isoformat(),
+                start=to_utc(min(window_data.keys())).isoformat(),
+                end=to_utc(max(window_data.keys())).isoformat(),
                 current_time=current_time.isoformat(),
                 sma_value=sum_vwap / count_vwap if count_vwap > 0 else 0,
                 sum_of_vwap=sum_vwap,
@@ -72,7 +76,7 @@ async def process_windows():
             )
             
             await aggregated_topic.send(value=aggregated)
-            # print(f"Sent aggregated data for {symbol}")
+            print(f"Sent aggregated data for {symbol}")
         
         window_table[symbol] = window_data
 
@@ -80,7 +84,7 @@ async def process_windows():
 async def process(stream):
     async for event in stream.group_by(StockData.symbol):
         symbol = event.symbol
-        current_time = datetime.fromisoformat(event.current_time)
+        current_time = to_utc(datetime.fromisoformat(event.current_time))
         
         if symbol not in window_table:
             window_table[symbol] = {}
